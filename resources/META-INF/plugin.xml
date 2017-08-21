@@ -243,6 +243,9 @@
         <!-- Inspections -->
         <spellchecker.support language="Latex" implementationClass="nl.rubensten.texifyidea.inspections.LatexSpellcheckingStrategy"/>
 
+        <!-- Psi -->
+        <languageInjector implementation="nl.rubensten.texifyidea.psi.LatexLanguageInjector"/>
+
         <localInspection language="Latex" implementationClass="nl.rubensten.texifyidea.inspections.MathOperatorEscapeInspection"
                          groupName="TeXiFy" displayName="Non-escaped common math operators"
                          enabledByDefault="true"/>

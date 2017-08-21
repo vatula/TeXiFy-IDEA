@@ -14,7 +14,7 @@ data class LatexAnnotation(val key: String, val value: String? = null) {
 
         fun fromComment(prev: PsiComment): LatexAnnotation? {
             if (prev.text.startsWith(PREFIX)) {
-                val list = prev.text.removePrefix(PREFIX).split(" = ".toRegex(), 1)
+                val list = prev.text.removePrefix(PREFIX).split(" = ".toRegex(), 2)
                 return LatexAnnotation(list[0], list.getOrNull(1))
             }
 

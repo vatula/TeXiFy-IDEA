@@ -118,7 +118,7 @@ fun LatexBeginCommand.isEntryPoint(): Boolean = TexifyUtil.isEntryPoint(this)
 fun LatexEnvironment.annotations(): List<LatexAnnotation> {
     val result = emptyList<LatexAnnotation>().toMutableList()
 
-    var prev = this.previousSiblingIgnoreWhitespace()
+    var prev = this.parentOfType(LatexContent::class)?.previousSiblingIgnoreWhitespace()
     while (prev is PsiComment) {
         val annotation = LatexAnnotation.fromComment(prev) ?: return result
         result.add(annotation)
