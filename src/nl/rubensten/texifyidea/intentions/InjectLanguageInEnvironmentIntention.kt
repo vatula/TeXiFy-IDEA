@@ -15,6 +15,9 @@ import nl.rubensten.texifyidea.LatexLanguage
 import nl.rubensten.texifyidea.file.LatexFile
 import nl.rubensten.texifyidea.lang.LatexAnnotation
 import nl.rubensten.texifyidea.psi.LatexBeginCommand
+import nl.rubensten.texifyidea.psi.LatexEnvironment
+import nl.rubensten.texifyidea.util.annotations
+import nl.rubensten.texifyidea.util.parentOfType
 import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.SwingConstants
@@ -36,7 +39,11 @@ class InjectLanguageInEnvironmentIntention : TexifyIntention() {
 
         val element = file.findElementAt(editor.caretModel.offset) ?: return false
 
-        return PsiTreeUtil.getParentOfType(element, LatexBeginCommand::class.java) != null
+        val beginCommand = element.parentOfType(LatexBeginCommand::class) ?: return false
+
+        val env = beginCommand.parentOfType(LatexEnvironment::class) ?: return false
+
+        return env.annotations().none { it.key == LatexAnnotation.KEY_INJECT_LANGUAGE }
     }
 
     override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {

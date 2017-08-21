@@ -1,15 +1,14 @@
 package nl.rubensten.texifyidea.util
 
 import com.intellij.openapi.editor.Document
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
 import nl.rubensten.texifyidea.index.LatexCommandsIndex
-import nl.rubensten.texifyidea.psi.LatexBeginCommand
-import nl.rubensten.texifyidea.psi.LatexCommands
-import nl.rubensten.texifyidea.psi.LatexMathContent
-import nl.rubensten.texifyidea.psi.LatexPsiUtil
+import nl.rubensten.texifyidea.lang.LatexAnnotation
+import nl.rubensten.texifyidea.psi.*
 import kotlin.reflect.KClass
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,3 +114,17 @@ fun LatexCommands.isKnown(): Boolean = TexifyUtil.isCommandKnown(this)
  * @see TexifyUtil.isEntryPoint
  */
 fun LatexBeginCommand.isEntryPoint(): Boolean = TexifyUtil.isEntryPoint(this)
+
+fun LatexEnvironment.annotations(): List<LatexAnnotation> {
+    val result = emptyList<LatexAnnotation>().toMutableList()
+
+    var prev = this.previousSiblingIgnoreWhitespace()
+    while (prev is PsiComment) {
+        val annotation = LatexAnnotation.fromComment(prev) ?: return result
+        result.add(annotation)
+
+        prev = prev.previousSiblingIgnoreWhitespace()
+    }
+
+    return result
+}
