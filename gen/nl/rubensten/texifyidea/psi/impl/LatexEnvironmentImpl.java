@@ -8,10 +8,10 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.util.PsiTreeUtil;
 import static nl.rubensten.texifyidea.psi.LatexTypes.*;
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
+import nl.rubensten.texifyidea.psi.LatexEnvironmentMixin;
 import nl.rubensten.texifyidea.psi.*;
 
-public class LatexEnvironmentImpl extends ASTWrapperPsiElement implements LatexEnvironment {
+public class LatexEnvironmentImpl extends LatexEnvironmentMixin implements LatexEnvironment {
 
   public LatexEnvironmentImpl(ASTNode node) {
     super(node);
