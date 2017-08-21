@@ -297,5 +297,10 @@
         <localInspection language="Latex" implementationClass="nl.rubensten.texifyidea.inspections.UnresolvedReferenceInspection"
                          groupName="TeXiFy" displayName="Unresolved references"
                          enabledByDefault="true"/>
+
+        <!-- Intentions -->
+        <intentionAction>
+            <className>nl.rubensten.texifyidea.intentions.InjectLanguageInEnvironmentIntention</className>
+        </intentionAction>
   </extensions>
 </idea-plugin>
