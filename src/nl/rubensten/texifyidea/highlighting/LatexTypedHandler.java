@@ -8,6 +8,7 @@ import com.intellij.openapi.editor.highlighter.EditorHighlighter;
 import com.intellij.openapi.editor.highlighter.HighlighterIterator;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
@@ -15,6 +16,7 @@ import com.intellij.psi.util.PsiTreeUtil;
 import nl.rubensten.texifyidea.file.LatexFile;
 import nl.rubensten.texifyidea.psi.LatexInlineMath;
 import nl.rubensten.texifyidea.psi.LatexTypes;
+import nl.rubensten.texifyidea.settings.TexifySettings;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -52,7 +54,7 @@ public class LatexTypedHandler extends TypedHandlerDelegate {
             file) {
 
         if (file instanceof LatexFile) {
-            if (c == '$') {
+            if (c == '$' && TexifySettings.getInstance().getAutomaticSecondInlineMathSymbol()) {
                 IElementType tokenType = getTypedTokenType(editor);
 
                 if (tokenType != LatexTypes.COMMAND_TOKEN && tokenType != LatexTypes.COMMENT_TOKEN) {
@@ -64,7 +66,10 @@ public class LatexTypedHandler extends TypedHandlerDelegate {
                 }
             }
             else if (c == '[') {
-                return insertDisplayMathClose(c, editor);
+                return insertDisplayMathClose(editor);
+            }
+            else if (c == '(') {
+                return insertRobustInlineMathClose(editor);
             }
 
         }
@@ -75,11 +80,32 @@ public class LatexTypedHandler extends TypedHandlerDelegate {
     /**
      * Upon typing {@code \[}, inserts the closing delimiter {@code \]}.
      */
-    private Result insertDisplayMathClose(char c, Editor editor) {
+    private Result insertDisplayMathClose(Editor editor) {
         IElementType tokenType = getTypedTokenType(editor);
 
         if (tokenType == LatexTypes.DISPLAY_MATH_START) {
-            editor.getDocument().insertString(editor.getCaretModel().getOffset(), "\\]");
+            // Checks if a bracket has already been inserted, if so: don't insert a 2nd one.
+            int offset = editor.getCaretModel().getOffset();
+            String bracketHuh = editor.getDocument().getText(TextRange.from(offset, 1));
+            String insertString = "\\" + ("]".equals(bracketHuh) ? "" : "]");
+
+            editor.getDocument().insertString(offset, insertString);
+            return Result.STOP;
+        }
+
+        return Result.CONTINUE;
+    }
+
+    /**
+     * Upon typing {@code \(}, inserts the closing delimiter {@code \)}.
+     */
+    private Result insertRobustInlineMathClose(Editor editor) {
+        IElementType tokenType = getTypedTokenType(editor);
+
+        if (tokenType == LatexTypes.INLINE_MATH_START) {
+            // Only insert backslash because the closing parenthesis is already inserted by the PairedBraceMatcher.
+            editor.getDocument().insertString(editor.getCaretModel().getOffset(), "\\");
+
             return Result.STOP;
         }
 

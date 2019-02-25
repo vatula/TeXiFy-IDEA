@@ -5,6 +5,7 @@ import com.intellij.codeInsight.completion.CompletionProvider
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.PlatformIcons
@@ -13,9 +14,7 @@ import nl.rubensten.texifyidea.TexifyIcons
 import nl.rubensten.texifyidea.completion.handlers.CompositeHandler
 import nl.rubensten.texifyidea.completion.handlers.FileNameInsertionHandler
 import nl.rubensten.texifyidea.completion.handlers.LatexReferenceInsertHandler
-import nl.rubensten.texifyidea.util.Kindness
-import nl.rubensten.texifyidea.util.findRootFile
-import nl.rubensten.texifyidea.util.isLatexFile
+import nl.rubensten.texifyidea.util.*
 import java.util.*
 import java.util.regex.Pattern
 
@@ -30,20 +29,39 @@ class LatexFileProvider : CompletionProvider<CompletionParameters>() {
         private val TRIM_BACK = Pattern.compile("\\.\\./")
     }
 
-    override fun addCompletions(parameters: CompletionParameters,
-                                context: ProcessingContext, result: CompletionResultSet) {
+    override fun addCompletions(parameters: CompletionParameters, context: ProcessingContext, result: CompletionResultSet) {
         // Get base data.
         val baseFile = parameters.originalFile.virtualFile
-        var autocompleteText = processAutocompleteText(parameters.originalPosition!!.text)
-        val baseDirectory: VirtualFile = if (parameters.originalFile.isLatexFile()) {
+        val autocompleteText = processAutocompleteText(parameters.originalPosition!!.text)
+
+        val baseDirectory = if (parameters.originalFile.isLatexFile()) {
             parameters.originalFile.findRootFile().containingDirectory.virtualFile
         }
-        else {
-            baseFile.parent
-        }
+        else baseFile.parent
 
-        val directoryPath = baseDirectory.path + "/" + autocompleteText
+        addByDirectory(baseDirectory, autocompleteText, result)
+
+        // When the base directory is a sources directory => add items of all source directories.
+        val rootManager = ProjectRootManager.getInstance(parameters.originalFile.project)
+        rootManager.contentSourceRoots.asSequence()
+                .filter { it != baseDirectory }
+                .toSet()
+                .forEach { addByDirectory(it, autocompleteText, result) }
+
+        // Add all included graphicspaths.
+        val graphicsPaths = parameters.originalFile.commandsInFileSet().filter { it.commandToken.text == "\\graphicspath" }
+        graphicsPaths.asSequence()
+                .mapNotNull { it.requiredParameter(0) }
+                .mapNotNull { it.println(); baseDirectory.findFileByRelativePath(it) }
+                .filter { it.isDirectory && it != baseDirectory }
+                .toSet()
+                .forEach { addByDirectory(it, autocompleteText, result) }
+    }
+
+    private fun addByDirectory(baseDirectory: VirtualFile, autoCompleteText: String, result: CompletionResultSet) {
+        val directoryPath = baseDirectory.path + "/" + autoCompleteText
         var searchDirectory = getByPath(directoryPath)
+        var autocompleteText = autoCompleteText
 
         if (searchDirectory == null) {
             autocompleteText = trimAutocompleteText(autocompleteText)
@@ -114,13 +132,23 @@ class LatexFileProvider : CompletionProvider<CompletionParameters>() {
     }
 
     private fun processAutocompleteText(autocompleteText: String): String {
-        var result = if (autocompleteText.endsWith("}"))
+        var result = if (autocompleteText.endsWith("}")) {
             autocompleteText.substring(0, autocompleteText.length - 1)
-        else
-            autocompleteText
+        }
+        else autocompleteText
 
         if (result.endsWith(".")) {
             result = result.substring(0, result.length - 1) + "/"
+        }
+
+        // Prevent double ./
+        if (result.startsWith("./")) {
+            result = result.substring(2)
+        }
+
+        // Prevent double /
+        if (result.startsWith("/")) {
+            result = result.substring(1)
         }
 
         return result

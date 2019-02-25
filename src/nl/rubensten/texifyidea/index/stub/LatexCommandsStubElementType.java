@@ -3,10 +3,11 @@ package nl.rubensten.texifyidea.index.stub;
 import com.intellij.psi.stubs.*;
 import nl.rubensten.texifyidea.LatexLanguage;
 import nl.rubensten.texifyidea.index.LatexCommandsIndex;
+import nl.rubensten.texifyidea.index.LatexDefinitionIndex;
 import nl.rubensten.texifyidea.index.LatexIncludesIndex;
 import nl.rubensten.texifyidea.psi.LatexCommands;
 import nl.rubensten.texifyidea.psi.impl.LatexCommandsImpl;
-import nl.rubensten.texifyidea.util.TexifyUtil;
+import nl.rubensten.texifyidea.util.Magic;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -79,10 +80,15 @@ public class LatexCommandsStubElementType extends IStubElementType<LatexCommands
 
     @Override
     public void indexStub(@NotNull LatexCommandsStub latexCommandsStub, @NotNull IndexSink indexSink) {
-        indexSink.occurrence(LatexCommandsIndex.KEY, latexCommandsStub.getCommandToken());
+        indexSink.occurrence(LatexCommandsIndex.Companion.key(), latexCommandsStub.getCommandToken());
 
-        if (TexifyUtil.INCLUDE_COMMANDS.contains(latexCommandsStub.getCommandToken())) {
-            indexSink.occurrence(LatexIncludesIndex.KEY, latexCommandsStub.getCommandToken());
+        String token = latexCommandsStub.getCommandToken();
+        if (Magic.Command.includes.contains(token)) {
+            indexSink.occurrence(LatexIncludesIndex.Companion.key(), token);
+        }
+
+        if (Magic.Command.definitions.contains(token) || Magic.Command.redefinitions.contains(token)) {
+            indexSink.occurrence(LatexDefinitionIndex.Companion.key(), token);
         }
     }
 

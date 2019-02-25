@@ -1,10 +1,13 @@
 package nl.rubensten.texifyidea.lang
 
 import nl.rubensten.texifyidea.lang.Argument.Type
-import nl.rubensten.texifyidea.lang.Package.*
+import nl.rubensten.texifyidea.lang.Package.Companion.AMSFONTS
+import nl.rubensten.texifyidea.lang.Package.Companion.AMSMATH
+import nl.rubensten.texifyidea.lang.Package.Companion.AMSSYMB
+import nl.rubensten.texifyidea.lang.Package.Companion.DEFAULT
+import nl.rubensten.texifyidea.lang.Package.Companion.LATEXSYMB
 
 /**
- *
  * @author Sten Wessel
  */
 enum class LatexMathCommand(
@@ -159,6 +162,7 @@ enum class LatexMathCommand(
     TRIANGLERIGHTEQ("trianglerighteq", dependency = AMSSYMB, display = "⊵", collapse = true),
     LTIMES("ltimes", dependency = AMSSYMB, display = "⋉", collapse = true),
     RTIMES("rtimes", dependency = AMSSYMB, display = "⋊", collapse = true),
+    TIMES("times", display = "×", collapse = true),
 
     /*
      *  Left/Right
@@ -175,6 +179,8 @@ enum class LatexMathCommand(
     RIGHT_PIPE("right|", display = "|"),
     LEFT_DOUBLE_PIPE("left\\|", display = "||"),
     RIGHT_DOUBLE_PIPE("right\\|", display = "||"),
+    LANGLE("langle", display = "<"),
+    RANGLE("rangle", display = ">"),
 
     /*
      *  Arrows
@@ -250,12 +256,12 @@ enum class LatexMathCommand(
     /*
      *  Generic commands
      */
-    MATHBB("mathbb", "text".asRequired(Type.TEXT), dependency = AMSSYMB),
+    MATHBB("mathbb", "text".asRequired(Type.TEXT), dependency = AMSFONTS),
     MATHBF("mathbf", "text".asRequired()),
     MATHCAL("mathcal", "text".asRequired()),
     MATHDS("mathds", "mathds".asRequired()),
     MATHELLIPSIS("mathellipsis"),
-    MATHFRAK("mathfrak", "text".asRequired(Type.TEXT), dependency = AMSSYMB),
+    MATHFRAK("mathfrak", "text".asRequired(Type.TEXT), dependency = AMSFONTS),
     MATHGROUP("mathgroup"),
     MATHIT("mathit", "text".asRequired()),
     MATHNORMAL("mathnormal", "text".asRequired()),
@@ -290,6 +296,7 @@ enum class LatexMathCommand(
     BIGUPLUS("biguplus", display = "⨄", collapse = true),
     BIGVEE("bigvee", display = "⋁", collapse = true),
     BIGWEDGE("bigwedge", display = "⋀", collapse = true),
+    BINOM("binom", "total".asRequired(), "sample".asRequired(), dependency = AMSMATH),
     BOT("bot", display = "⟂", collapse = true),
     BRACEVERT("bracevert"),
     BREVE("breve", "a".asRequired()),
@@ -317,6 +324,7 @@ enum class LatexMathCommand(
     DIVIDEONTIMES("divideontimes", dependency = AMSSYMB, display = "⋇", collapse = true),
     DOTEQ("doteq"),
     DOT("dot", "a".asRequired()),
+    DOTS("dots", display = "⋯", collapse = true),
     ELL("ell"),
     EXP("exp"),
     FLAT("flat", display = "♭", collapse = true),
@@ -332,25 +340,29 @@ enum class LatexMathCommand(
     UNDERBRACE("underbrace", "text".asRequired()),
     UNDERLINE("underline", "text".asRequired()),
     VEC("vec", "a".asRequired()),
+    VEE("vee",  display = "⋁", collapse = true),
+    WEDGE("wedge", display = "⋀", collapse = true),
     WIDEHAT("widehat", "text".asRequired()),
     WIDETILDE("widetilde", "text".asRequired());
 
     companion object {
-        private val lookup = mutableMapOf<String, LatexMathCommand>()
-        private val lookupDisplay = mutableMapOf<String, LatexMathCommand>()
+
+        private val lookup = HashMap<String, LatexMathCommand>()
+        private val lookupDisplay = HashMap<String, LatexMathCommand>()
 
         init {
             for (command in LatexMathCommand.values()) {
-                lookup.put(command.command, command)
+                lookup[command.command] = command
                 if (command.display != null) {
                     lookupDisplay.putIfAbsent(command.display!!, command)
                 }
             }
         }
 
-        @JvmStatic fun get(command: String) = lookup[command]
+        @JvmStatic
+        operator fun get(command: String) = lookup[command]
 
-        @JvmStatic fun findByDisplay(display: String) = lookupDisplay[display]
+        @JvmStatic
+        fun findByDisplay(display: String) = lookupDisplay[display]
     }
-
 }

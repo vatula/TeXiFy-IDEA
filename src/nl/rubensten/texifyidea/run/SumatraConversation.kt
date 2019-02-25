@@ -1,7 +1,43 @@
 package nl.rubensten.texifyidea.run
 
+import com.intellij.openapi.util.SystemInfo
 import com.pretty_tools.dde.client.DDEClientConversation
 import nl.rubensten.texifyidea.TeXception
+import nl.rubensten.texifyidea.util.Log
+
+/**
+ * Indicates whether SumatraPDF is installed and DDE communication is enabled.
+ *
+ * Is computed once at initialization (for performance), which means that the IDE needs to be restarted when users
+ * install SumatraPDF while running TeXiFy.
+ */
+val isSumatraAvailable: Boolean by lazy {
+    if (!SystemInfo.isWindows || !isSumatraInstalled()) return@lazy false
+
+    // Try if native bindings are available
+    try {
+        DDEClientConversation()
+    }
+    catch (e: NoClassDefFoundError) {
+        Log.logf("Native library DLLs could not be found.")
+        return@lazy false
+    }
+
+    true
+}
+
+private fun isSumatraInstalled(): Boolean {
+    // Look up SumatraPDF registry key
+    val process = Runtime.getRuntime().exec(
+            "reg query \"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\SumatraPDF.exe\" /ve"
+    )
+
+    val br = process.inputStream.bufferedReader()
+    val firstLine = br.readLine() ?: return false
+    br.close()
+
+    return !firstLine.startsWith("ERROR:")
+}
 
 /**
  * Send commands to SumatraPDF.
@@ -12,24 +48,30 @@ import nl.rubensten.texifyidea.TeXception
  * @since b0.4
  */
 object SumatraConversation {
-    private val SERVER = "SUMATRA"
-    private val TOPIC = "control"
 
-    private val conversation: DDEClientConversation
+    private const val server = "SUMATRA"
+    private const val topic = "control"
+    private val conversation: DDEClientConversation?
 
     init {
-        try {
-            conversation = DDEClientConversation()
-        } catch (e: NoClassDefFoundError) {
+        conversation = if (!isSumatraAvailable) {
+            null
+        }
+        else try {
+            DDEClientConversation()
+        }
+        catch (e: NoClassDefFoundError) {
             throw TeXception("Native library DLLs could not be found.", e)
         }
+
     }
 
-    fun openFile(pdfFilePath: String, newWindow: Boolean = false, focus: Boolean = false, forceRefresh: Boolean = false, start: Boolean = false) {
-        if (start) {
-            Runtime.getRuntime().exec("cmd.exe /c start SumatraPDF -reuse-instance \"$pdfFilePath\"")
-        } else {
+    fun openFile(pdfFilePath: String, newWindow: Boolean = false, focus: Boolean = false, forceRefresh: Boolean = false) {
+        try {
             execute("Open(\"$pdfFilePath\", ${newWindow.bit}, ${focus.bit}, ${forceRefresh.bit})")
+        }
+        catch (e: TeXception) {
+            Runtime.getRuntime().exec("cmd.exe /c start SumatraPDF -reuse-instance \"$pdfFilePath\"")
         }
     }
 
@@ -53,18 +95,22 @@ object SumatraConversation {
 
     private fun execute(vararg commands: String) {
         try {
-            conversation.connect(SERVER, TOPIC)
+            conversation!!.connect(server, topic)
             conversation.execute(commands.joinToString(separator = "") { "[$it]" })
         }
         catch (e: Exception) {
             throw TeXception("Connection to SumatraPDF was disrupted.", e)
         }
         finally {
-            conversation.disconnect()
+            conversation?.disconnect()
         }
     }
 
+    /**
+     * @author Sten Wessel
+     */
     enum class ViewMode(val description: String) {
+
         SINGLE_PAGE("single page"),
         FACING("facing"),
         BOOK_VIEW("book view"),
@@ -73,11 +119,16 @@ object SumatraConversation {
         CONTINUOUS_BOOK_VIEW("continuous book view");
     }
 
+    /**
+     * @author Sten Wessel
+     */
     class ZoomLevel(val percentage: Int) {
+
         companion object {
-            val FIT_PAGE = ZoomLevel(-1)
-            val FIT_WIDTH = ZoomLevel(-2)
-            val FIT_CONTENT = ZoomLevel(-3)
+
+            private val fitPage = ZoomLevel(-1)
+            private val fitWidth = ZoomLevel(-2)
+            private val fitContent = ZoomLevel(-3)
         }
 
         init {

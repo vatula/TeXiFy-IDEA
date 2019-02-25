@@ -9,16 +9,10 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import nl.rubensten.texifyidea.file.LatexFileType
-import nl.rubensten.texifyidea.psi.LatexMathContent
-import nl.rubensten.texifyidea.psi.LatexMathEnvironment
-import nl.rubensten.texifyidea.psi.LatexNoMathContent
-import nl.rubensten.texifyidea.psi.LatexNormalText
+import nl.rubensten.texifyidea.psi.*
 import nl.rubensten.texifyidea.psi.LatexTypes.*
-import nl.rubensten.texifyidea.util.firstChildOfType
-import nl.rubensten.texifyidea.util.hasParent
-import nl.rubensten.texifyidea.util.lastChildOfType
-import nl.rubensten.texifyidea.util.previousSiblingIgnoreWhitespace
-import java.util.regex.Pattern
+import nl.rubensten.texifyidea.settings.TexifySettings
+import nl.rubensten.texifyidea.util.*
 
 /**
  * @author Ruben Schellekens
@@ -30,22 +24,32 @@ open class UpDownAutoBracket : TypedHandlerDelegate() {
         /**
          * Symbols that denote wheter a {} block has to be inserted when having more than 1 character.
          */
-        val INSERT_SYMBOLS = setOf("_", "^")
+        private val insertSymbols = setOf("_", "^")
 
         /**
-         * Matches the suffix that denotes that braces may not be inserted.
+         * Matches the suffix that denotes that braces may be inserted.
          */
-        val INSERT_FORBIDDEN = Pattern.compile("^[\\s^_,.;%:$]$")!!
+        private val insertOnly = """^[a-zA-Z0-9]$""".toRegex()
     }
 
-    override fun charTyped(c: Char, project: Project?, editor: Editor, file: PsiFile): Result {
-        if (file.fileType != LatexFileType.INSTANCE) {
+    override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
+        if (!TexifySettings.getInstance().automaticUpDownBracket) {
+            return Result.CONTINUE
+        }
+
+        if (file.fileType != LatexFileType) {
             return Result.CONTINUE
         }
 
         // Find selected element.
         val caret = editor.caretModel
         val element = file.findElementAt(caret.offset - 1) ?: return Result.CONTINUE
+
+        // Check if in \label.
+        val parent = element.parentOfType(LatexCommands::class)
+        when (parent?.name) {
+            "\\label", "\\bibitem" -> return Result.CONTINUE
+        }
 
         // Insert squiggly brackets.
         if (element is LatexNormalText) {
@@ -62,39 +66,46 @@ open class UpDownAutoBracket : TypedHandlerDelegate() {
     }
 
     private fun findNormalText(element: PsiElement): LatexNormalText? {
-        return exit@ when (element) {
+        return when (element) {
             is PsiWhiteSpace -> {
                 // When the whitespace is the end of a math environment.
-                val sibling = element.previousSiblingIgnoreWhitespace()
-                if (sibling != null) {
-                    if (sibling is LatexMathContent) {
-                        return@exit sibling.lastChildOfType(LatexNoMathContent::class)
+                val sibling = element.previousSiblingIgnoreWhitespace() ?: return element.parentOfType(LatexNormalText::class)
+                return when (sibling) {
+                    is LatexMathContent, is LatexEnvironmentContent -> {
+                        sibling.lastChildOfType(LatexNoMathContent::class)
                                 ?.firstChildOfType(LatexNormalText::class)
                     }
-                    else {
-                        return@exit sibling.firstChildOfType(LatexNormalText::class)
+                    is LeafPsiElement -> {
+                        sibling.parentOfType(LatexNormalText::class)
+                    }
+                    else -> {
+                        sibling.firstChildOfType(LatexNormalText::class)
                     }
                 }
-
-                return@exit null
             }
             is PsiComment -> {
                 // When for some reason people want to insert it directly before a comment.
-                val mother = element.previousSiblingIgnoreWhitespace() ?: return@exit null
-                return@exit mother.lastChildOfType(LatexNormalText::class)
+                val mother = element.previousSiblingIgnoreWhitespace() ?: return null
+                return mother.lastChildOfType(LatexNormalText::class)
             }
             is LeafPsiElement -> {
                 when (element.elementType) {
                     END_COMMAND, BEGIN_COMMAND, COMMAND_TOKEN -> {
                         // When it is followed by a LatexCommands or comment tokens.
-                        val noMathContent = element.parent.parent ?: return@exit null
-                        val sibling = noMathContent.previousSiblingIgnoreWhitespace() ?: return@exit null
-                        return@exit sibling.firstChildOfType(LatexNormalText::class)
+                        val noMathContent = element.parent.parent ?: return null
+                        val sibling = noMathContent.previousSiblingIgnoreWhitespace() ?: return null
+                        return sibling.firstChildOfType(LatexNormalText::class)
+                    }
+                    INLINE_MATH_END -> {
+                        // At the end of inline math.
+                        val mathContent = element.previousSiblingIgnoreWhitespace() as? LatexMathContent ?: return null
+                        val noMathContent = mathContent.lastChildOfType(LatexNoMathContent::class) ?: return null
+                        return noMathContent.firstChildOfType(LatexNormalText::class)
                     }
                     else -> {
                         // When a character is inserted just before the close brace of a group/inline math end.
-                        val content = element.prevSibling ?: return@exit null
-                        return@exit content.firstChildOfType(LatexNormalText::class)
+                        val content = element.prevSibling ?: return null
+                        return content.firstChildOfType(LatexNormalText::class)
                     }
                 }
             }
@@ -104,7 +115,7 @@ open class UpDownAutoBracket : TypedHandlerDelegate() {
 
     private fun handleNormalText(normalText: LatexNormalText, editor: Editor, char: Char) {
         // Check if in math environment.
-        if (!normalText.hasParent(LatexMathEnvironment::class)) {
+        if (!normalText.inMathContext()) {
             return
         }
 
@@ -119,13 +130,13 @@ open class UpDownAutoBracket : TypedHandlerDelegate() {
 
         // Only insert when a valid symbol has been typed.
         val afterSymbol = char.toString()
-        if (INSERT_FORBIDDEN.matcher(afterSymbol).matches()) {
+        if (!insertOnly.matches(afterSymbol)) {
             return
         }
 
         // Check if the inserted symbol is eligible for brace insertion.
         val subSupSymbol = text.substring(relative - 3, relative - 2)
-        if (!INSERT_SYMBOLS.contains(subSupSymbol)) {
+        if (!insertSymbols.contains(subSupSymbol)) {
             return
         }
 

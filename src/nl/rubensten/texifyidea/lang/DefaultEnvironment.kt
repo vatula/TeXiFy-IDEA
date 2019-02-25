@@ -1,6 +1,7 @@
 package nl.rubensten.texifyidea.lang
 
 import nl.rubensten.texifyidea.lang.Environment.Context
+import nl.rubensten.texifyidea.lang.Package.Companion.AMSMATH
 import nl.rubensten.texifyidea.psi.LatexEnvironment
 import nl.rubensten.texifyidea.util.name
 import java.util.*
@@ -9,7 +10,7 @@ import java.util.*
  * @author Ruben Schellekens, Sten Wessel
  */
 enum class DefaultEnvironment(
-        vararg override val arguments: Argument,
+        override vararg val arguments: Argument,
         override val environmentName: String,
         override val initialContents: String = "",
         override val context: Context = Context.NORMAL,
@@ -21,14 +22,13 @@ enum class DefaultEnvironment(
     ALLTT(environmentName = "alltt"),
     CENTER(environmentName = "center"),
     DESCRIPTION(environmentName = "description", initialContents = "\\item "),
-    DISPLAYMATH(environmentName = "displaymath"),
+    DISPLAYMATH(environmentName = "displaymath", context = Context.MATH),
     DOCUMENT(environmentName = "document"),
     ENUMERATE(environmentName = "enumerate", initialContents = "\\item "),
     EQUATION(environmentName = "equation", context = Context.MATH),
-    EQUATION_STAR(environmentName = "equation*", context = Context.MATH),
     EQNARRAY(environmentName = "eqnarray"),
-    FIGURE(environmentName = "figure", arguments = OptionalArgument("placement")),
-    FIGURE_STAR(environmentName = "figure*", arguments = OptionalArgument("placement")),
+    FIGURE(environmentName = "figure", arguments = *arrayOf(OptionalArgument("placement"))),
+    FIGURE_STAR(environmentName = "figure*", arguments = *arrayOf(OptionalArgument("placement"))),
     FILECONTENTS(environmentName = "filecontents"),
     FILECONTENTS_STAR(environmentName = "filecontents*"),
     FLUSHLEFT(environmentName = "flushleft"),
@@ -50,13 +50,13 @@ enum class DefaultEnvironment(
     SCRIPTSIZE(environmentName = "scriptsize"),
     SMALL(environmentName = "small"),
     TABBING(environmentName = "tabbing"),
-    TABLE(environmentName = "table", arguments = OptionalArgument("placement")),
-    TABLE_STAR(environmentName = "table*", arguments = OptionalArgument("placement")),
+    TABLE(environmentName = "table", arguments = *arrayOf(OptionalArgument("placement"))),
+    TABLE_STAR(environmentName = "table*", arguments = *arrayOf(OptionalArgument("placement"))),
     TABULAR(OptionalArgument("pos"), RequiredArgument("cols"), environmentName = "tabular"),
     TABULAR_STAR(RequiredArgument("width"), OptionalArgument("pos"), RequiredArgument("cols"), environmentName = "tabular*"),
-    THEBIBLIOGRAPHY(environmentName = "thebibliography", arguments = RequiredArgument("widestlabel")),
+    THEBIBLIOGRAPHY(environmentName = "thebibliography", arguments = *arrayOf(RequiredArgument("widestlabel"))),
     THEINDEX(environmentName = "theindex"),
-    THEOREM(environmentName = "theorem", arguments = OptionalArgument("optional")),
+    THEOREM(environmentName = "theorem", arguments = *arrayOf(OptionalArgument("optional"))),
     TINY(environmentName = "tiny"),
     TITLEPAGE(environmentName = "titlepage"),
     TRIVLIST(environmentName = "trivlist"),
@@ -65,22 +65,25 @@ enum class DefaultEnvironment(
     VERSE(environmentName = "verse"),
 
     // amsmath
-    ALIGN(environmentName = "align", context = Context.MATH, dependency = Package.AMSMATH),
-    ALIGN_STAR(environmentName = "align*", context = Context.MATH, dependency = Package.AMSMATH),
-    ALIGNAT(environmentName = "alignat", context = Context.MATH, dependency = Package.AMSMATH),
-    ALIGNAT_STAR(environmentName = "alignat*", context = Context.MATH, dependency = Package.AMSMATH),
-    FLALIGN(environmentName = "flalign", context = Context.MATH, dependency = Package.AMSMATH),
-    FLALIGN_STAR(environmentName = "flalign*", context = Context.MATH, dependency = Package.AMSMATH),
-    GATHER(environmentName = "gather", context = Context.MATH, dependency = Package.AMSMATH),
-    GATHER_STAR(environmentName = "gather*", context = Context.MATH, dependency = Package.AMSMATH),
-    MULTLINE(environmentName = "multline", context = Context.MATH, dependency = Package.AMSMATH),
-    MULTLINE_STAR(environmentName = "multline*", context = Context.MATH, dependency = Package.AMSMATH),
-    SPLIT(environmentName = "split", context = Context.MATH, dependency = Package.AMSMATH),
-    SPLIT_STAR(environmentName = "split*", context = Context.MATH, dependency = Package.AMSMATH),
-    CASES(environmentName = "cases", context = Context.MATH, dependency = Package.AMSMATH),
+    ALIGN(environmentName = "align", context = Context.MATH, dependency = AMSMATH),
+    ALIGN_STAR(environmentName = "align*", context = Context.MATH, dependency = AMSMATH),
+    ALIGNAT(environmentName = "alignat", context = Context.MATH, dependency = AMSMATH),
+    ALIGNAT_STAR(environmentName = "alignat*", context = Context.MATH, dependency = AMSMATH),
+    EQUATION_STAR(environmentName = "equation*", context = Context.MATH, dependency = AMSMATH),
+    FLALIGN(environmentName = "flalign", context = Context.MATH, dependency = AMSMATH),
+    FLALIGN_STAR(environmentName = "flalign*", context = Context.MATH, dependency = AMSMATH),
+    GATHER(environmentName = "gather", context = Context.MATH, dependency = AMSMATH),
+    GATHER_STAR(environmentName = "gather*", context = Context.MATH, dependency = AMSMATH),
+    MULTLINE(environmentName = "multline", context = Context.MATH, dependency = AMSMATH),
+    MULTLINE_STAR(environmentName = "multline*", context = Context.MATH, dependency = AMSMATH),
+    SPLIT(environmentName = "split", context = Context.MATH, dependency = AMSMATH),
+    CASES(environmentName = "cases", context = Context.MATH, dependency = AMSMATH),
 
     // comment
-    COMMENT(environmentName = "comment", context = Context.COMMENT, dependency = Package.COMMENT);
+    COMMENT(environmentName = "comment", context = Context.COMMENT, dependency = Package.COMMENT),
+
+    // lualatex
+    LUACODE(environmentName = "luacode", dependency = Package.LUACODE);
 
     companion object {
 
@@ -91,7 +94,7 @@ enum class DefaultEnvironment(
 
         init {
             for (environment in DefaultEnvironment.values()) {
-                lookup.put(environment.environmentName, environment)
+                lookup[environment.environmentName] = environment
             }
         }
 
@@ -101,7 +104,7 @@ enum class DefaultEnvironment(
         @JvmStatic
         fun fromPsi(latexEnvironment: LatexEnvironment): DefaultEnvironment? {
             val text: String = latexEnvironment.name()?.text ?: return null
-            return get(text)
+            return get(text.toLowerCase())
         }
 
         /**

@@ -9,7 +9,7 @@ import nl.rubensten.texifyidea.LatexLanguage
 import nl.rubensten.texifyidea.lang.Argument
 import nl.rubensten.texifyidea.lang.Argument.Type
 import nl.rubensten.texifyidea.lang.LatexMathCommand
-import nl.rubensten.texifyidea.lang.LatexNoMathCommand
+import nl.rubensten.texifyidea.lang.LatexRegularCommand
 import nl.rubensten.texifyidea.psi.*
 import nl.rubensten.texifyidea.util.hasParent
 
@@ -71,12 +71,12 @@ class LatexSpellcheckingStrategy : SpellcheckingStrategy() {
     }
 
     private fun getArguments(commandName: String): Array<out Argument>? {
-        val cmdHuh = LatexNoMathCommand.get(commandName)
+        val cmdHuh = LatexRegularCommand[commandName]
         if (cmdHuh != null) {
             return cmdHuh.arguments
         }
 
-        val mathCmdHuh = LatexMathCommand.get(commandName) ?: return null
+        val mathCmdHuh = LatexMathCommand[commandName] ?: return null
 
         return mathCmdHuh.arguments
     }

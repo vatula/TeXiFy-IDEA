@@ -5,25 +5,26 @@ import nl.rubensten.texifyidea.util.inMathContext
 import kotlin.reflect.KClass
 
 /**
- *
  * @author Ruben Schellekens, Sten Wessel
  */
 interface LatexCommand : Dependend {
+
     companion object {
 
         /**
-         * Looks up the given command name in all [LatexMathCommand]s and [LatexNoMathCommand]s.
+         * Looks up the given command name in all [LatexMathCommand]s and [LatexRegularCommand]s.
          *
-         * @param commandName The command name to look up. Can start with or without `\`
+         * @param commandName
+         *          The command name to look up. Can start with or without `\`
          * @return The found command, or `null` when the command doesn't exist.
          */
-        fun lookup(commandName: String): LatexCommand? {
-            var commandName = commandName
-            if (commandName.startsWith("\\")) {
-                commandName = commandName.substring(1)
+        fun lookup(commandName: String?): LatexCommand? {
+            var result = commandName ?: return null
+            if (result.startsWith("\\")) {
+                result = result.substring(1)
             }
 
-            return LatexMathCommand.get(commandName) ?: LatexNoMathCommand.get(commandName)
+            return LatexMathCommand[result] ?: LatexRegularCommand[result]
         }
 
         /**
@@ -33,13 +34,13 @@ interface LatexCommand : Dependend {
          * @return The found command, or `null` when the command does not exist.
          */
         fun lookup(command: LatexCommands): LatexCommand? {
-            val commandName = command.name!!.substring(1)
+            val name = command.commandToken.text
+            val commandName = name.substring(1)
 
             return if (command.inMathContext()) {
-                LatexMathCommand.get(commandName)
-            } else {
-                LatexNoMathCommand.get(commandName)
+                LatexMathCommand[commandName]
             }
+            else LatexRegularCommand[commandName]
         }
     }
 
@@ -84,12 +85,13 @@ interface LatexCommand : Dependend {
 
     @Suppress("UNCHECKED_CAST")
     fun <T : Argument> getArgumentsOf(clazz: KClass<T>): List<T> {
-        return arguments.filter { clazz.java.isAssignableFrom(it.javaClass) }.mapNotNull { it as? T }
+        return arguments.asSequence()
+                .filter { clazz.java.isAssignableFrom(it.javaClass) }
+                .mapNotNull { it as? T }
+                .toList()
     }
 
-    fun <T : Argument> getArgumentsOf(clazz: Class<T>): List<T> {
-        return getArgumentsOf(clazz.kotlin)
-    }
+    fun <T : Argument> getArgumentsOf(clazz: Class<T>) = getArgumentsOf(clazz.kotlin)
 }
 
 internal fun String.asRequired(type: Argument.Type = Argument.Type.NORMAL) = RequiredArgument(this, type)
